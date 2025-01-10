@@ -8,7 +8,7 @@ let current = root;
 let currNodeId = 0;
 let currFirstScriptNodeId = currNodeId;
 
-const objects = [];
+let objects = [];
 const backrefs = {};
 let scripts = [];
 
@@ -110,9 +110,11 @@ for (let line of lines) {
   }
 }
 
+const objectTimeThreashold = 0.2;
 const totalObjectTime = objects[objects.length - 1].timestamp -
   objects[0].timestamp;
-objects.sort((a, b) => b.duration - a.duration);
+objects = objects.sort((a, b) => b.duration - a.duration)
+  .filter((object) => object.duration > objectTimeThreashold);
 
 const totalScriptTime = scripts[scripts.length - 1].timestamp -
   scripts[0].timestamp;
@@ -145,9 +147,9 @@ function generateNodeList(node) {
     data += ` <a href="#backref-${node.backref}">(backref ${node.backref})</a>`;
   }
   if (nodeDeserdeSources[node.name]) {
-    data += ` <a class="flright" target="_blank" href='${sourceRoot}#${
-      nodeDeserdeSources[node.name]
-    }'><span style="font-size: 0.5em"> [src]</span></a>`;
+//    data += ` <a class="flright" target="_blank" href='${sourceRoot}#${
+//      nodeDeserdeSources[node.name]
+//    }'><span style="font-size: 0.5em"> [src]</span></a>`;
   }
   if (!node.children.length) {
     return `<li>${data}</li>`;
@@ -220,6 +222,7 @@ const html = `
   display: block;
   position: relative;
   padding-left: calc(2 * var(--spacing) - var(--radius) - 2px);
+  content-visibility: auto; /* For performance */
 }
 
 .tree ul {
