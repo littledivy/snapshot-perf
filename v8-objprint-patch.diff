@@ -1,0 +1,27 @@
+divy@divy-macbook v8 % git diff
+diff --git a/src/snapshot/deserializer.cc b/src/snapshot/deserializer.cc
+index 10fed39b27..7a2829fd1e 100644
+--- a/src/snapshot/deserializer.cc
++++ b/src/snapshot/deserializer.cc
+@@ -567,6 +567,7 @@ void Deserializer<IsolateT>::PostProcessNewObject(DirectHandle<Map> map,
+   InstanceType instance_type = raw_map->instance_type();
+   Tagged<HeapObject> raw_obj = *obj;
+   DCHECK_IMPLIES(deserializing_user_code(), should_rehash());
++
+   if (should_rehash()) {
+     if (InstanceTypeChecker::IsString(instance_type)) {
+       // Uninitialize hash field as we need to recompute the hash.
+@@ -674,6 +675,13 @@ void Deserializer<IsolateT>::PostProcessNewObject(DirectHandle<Map> map,
+   } else if (InstanceTypeChecker::IsScript(instance_type)) {
+     LogScriptEvents(Cast<Script>(*obj));
+   }
++
++  if (v8_flags.trace_deserialization
++      && !InstanceTypeChecker::IsExternalString(instance_type)) {
++    PrintF("-- %f ", base::OS::TimeCurrentMillis());
++    ShortPrint(*obj);
++    PrintF("\n");
++  }
+ }
+
+ template <typename IsolateT>
