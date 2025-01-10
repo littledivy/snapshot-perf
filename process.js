@@ -93,7 +93,7 @@ for (let line of lines) {
   }
 
   if (!name) {
-	  continue;
+    continue;
   }
   name = name.trim();
   if (name.startsWith("-")) {
@@ -394,7 +394,6 @@ word-wrap: break-word;
 </head>
 <body>
   <div class="column left maxw50">
-  <h3>CLI Snapshot</h3>
 <table>
     <tr>
       <th>%</th>
