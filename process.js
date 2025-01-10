@@ -1,6 +1,21 @@
 // MIT License. 2025 Divy Srivastava.
 
 const trace = await Deno.readTextFile("trace.txt");
+const events = await Deno.readTextFile("events.txt");
+
+const eventLines = events.split("\n");
+let eventMap = {};
+
+for (let line of eventLines) {
+  line = line.trim();
+  if (line.startsWith("script")) {
+    const [eventName, ...data] = line.split(",");
+    if (eventName == "script" && data[0] == "deserialize") {
+      const id = parseInt(data[1], 10);
+      eventMap[id] = { timestamp: parseFloat(data[2]) };
+    }
+  }
+}
 
 const lines = trace.split("\n");
 const root = { name: "root", depth: -1, children: [], parent: null };
@@ -51,9 +66,12 @@ for (let line of lines) {
     }
     if (eventName == "script" && data[0] == "deserialize") {
       const id = parseInt(data[1], 10);
-      const prev = scripts[scripts.length - 1];
-      const time = prev ? (parseFloat(data[2]) / 1000 - prev.timestamp) : 0;
-      scripts.push({ id, timestamp: parseFloat(data[2]) / 1000, time });
+      const prevScript = scripts[scripts.length - 1]?.id;
+      const prev = eventMap[prevScript];
+      const curr = eventMap[id];
+
+      const time = prev ? (curr.timestamp - prev.timestamp) / 1000 : 0;
+      scripts.push({ id, timestamp: curr.timestamp / 1000, time });
     }
     continue;
   }
@@ -113,8 +131,16 @@ for (let line of lines) {
 const objectTimeThreashold = 0.2;
 const totalObjectTime = objects[objects.length - 1].timestamp -
   objects[0].timestamp;
-objects = objects.sort((a, b) => b.duration - a.duration)
-  .filter((object) => object.duration > objectTimeThreashold);
+objects = objects.sort((a, b) => b.duration - a.duration);
+
+const filteredObjs = objects.filter((object) =>
+  object.duration > objectTimeThreashold
+);
+if (filteredObjs.length === 0) {
+  objects = objects.slice(0, 10);
+} else {
+  objects = filteredObjs;
+}
 
 const totalScriptTime = scripts[scripts.length - 1].timestamp -
   scripts[0].timestamp;
@@ -147,9 +173,9 @@ function generateNodeList(node) {
     data += ` <a href="#backref-${node.backref}">(backref ${node.backref})</a>`;
   }
   if (nodeDeserdeSources[node.name]) {
-//    data += ` <a class="flright" target="_blank" href='${sourceRoot}#${
-//      nodeDeserdeSources[node.name]
-//    }'><span style="font-size: 0.5em"> [src]</span></a>`;
+    //    data += ` <a class="flright" target="_blank" href='${sourceRoot}#${
+    //      nodeDeserdeSources[node.name]
+    //    }'><span style="font-size: 0.5em"> [src]</span></a>`;
   }
   if (!node.children.length) {
     return `<li>${data}</li>`;
