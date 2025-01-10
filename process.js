@@ -92,6 +92,9 @@ for (let line of lines) {
     continue;
   }
 
+  if (!name) {
+	  continue;
+  }
   name = name.trim();
   if (name.startsWith("-")) {
     name = name.slice(1);
@@ -128,7 +131,7 @@ for (let line of lines) {
   }
 }
 
-const objectTimeThreashold = 0.2;
+const objectTimeThreashold = 0.1;
 const totalObjectTime = objects[objects.length - 1].timestamp -
   objects[0].timestamp;
 objects = objects.sort((a, b) => b.duration - a.duration);
@@ -231,9 +234,7 @@ const html = `
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Deserialization tracing</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/clusterize.js/0.19.0/clusterize.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/clusterize.js/0.19.0/clusterize.min.css">
+  <title>deno CLI snapshot</title>
   <style>
     body {
       font-family: monospace;
@@ -393,6 +394,7 @@ word-wrap: break-word;
 </head>
 <body>
   <div class="column left maxw50">
+  <h3>CLI Snapshot</h3>
 <table>
     <tr>
       <th>%</th>
