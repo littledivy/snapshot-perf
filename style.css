@@ -1,0 +1,88 @@
+body {
+  font-family: monospace;
+}
+
+.tree {
+  --spacing: 1.5rem;
+  --radius: 5px;
+  line-height: 1.5;
+}
+
+.fright {
+  float: right;
+}
+
+body {
+  display: flex;
+  margin: 0;
+  min-height: 100vh;
+  height: 100%;
+}
+.column {
+  padding: 15px;
+  box-sizing: border-box;
+}
+.maxw50 {
+  max-width: 50vw;
+}
+.left {
+  background-color: #f8f9fa;
+}
+.right {
+  background-color: #e9ecef;
+  width: 100%;
+}
+.row {
+  display: flex;
+}
+.top {
+  flex: 1;
+  max-height: 50vh;
+  overflow: auto;
+}
+table {
+  word-wrap: break-word;
+  border-spacing: 0;
+}
+
+.bottom {
+  flex: 1;
+}
+td, th {
+  padding: 0.5em;
+  text-align: left;
+}
+.resize {
+  background: #444857;
+  width: 1px;
+  cursor: col-resize;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  user-select: none;
+}
+.resize::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 3px;
+  height: 100vh;
+  border-inline: 1px solid #fff;
+}
+[data-tooltip]:hover::after {
+  display: block;
+  position: absolute;
+  content: attr(data-tooltip);
+  border: 1px solid black;
+  background: #eee;
+  padding: 0.25em;
+}
+.tooltip {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+.infinite-tree-toggler {
+  margin-right: 0.5em;
+}

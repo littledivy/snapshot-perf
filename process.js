@@ -1,27 +1,55 @@
 // MIT License. 2025 Divy Srivastava.
 
 const trace = await Deno.readTextFile("trace.txt");
-const events = await Deno.readTextFile("events.txt");
 
-const eventLines = events.split("\n");
-let eventMap = {};
+const n = Deno.args[0] || 100;
 
-for (let line of eventLines) {
-  line = line.trim();
-  if (line.startsWith("script")) {
-    const [eventName, ...data] = line.split(",");
-    if (eventName == "script" && data[0] == "deserialize") {
-      const id = parseInt(data[1], 10);
-      eventMap[id] = { timestamp: parseFloat(data[2]) };
+async function eventMapFor(run) {
+  const events = await Deno.readTextFile(`events/events.${run}.txt`);
+
+  const eventLines = events.split("\n");
+  let eventMap = {};
+
+  for (let line of eventLines) {
+    line = line.trim();
+    if (line.startsWith("script")) {
+      const [eventName, ...data] = line.split(",");
+      if (eventName == "script" && data[0] == "deserialize") {
+        const id = parseInt(data[1], 10);
+        eventMap[id] = { timestamp: parseFloat(data[2]) };
+      }
     }
   }
+
+  return eventMap;
+}
+
+// Read events from n different runs and make the final event map which 
+// averages the time between the events.
+const eventMap = {};
+const eventsMaps = [];
+
+for (let i = 0; i < n; i++) {
+  eventsMaps.push(await eventMapFor(i));
+}
+
+const eventMap0 = eventsMaps[0];
+
+for (const key of Object.keys(eventMap0)) {
+  let sum = eventMap0[key].timestamp;
+  for (let i = 1; i < n; i++) {
+    sum += eventsMaps[i][key].timestamp;
+  }
+  eventMap[key] = { timestamp: sum / n };
 }
 
 const lines = trace.split("\n");
-const root = { name: "root", depth: -1, children: [], parent: null };
+const root = { id: 0, name: "root", depth: -1, children: [], parent: null };
 let current = root;
 let currNodeId = 0;
+let currObjId = 0;
 let currFirstScriptNodeId = currNodeId;
+let currFirstObjectNodeId = currNodeId;
 
 let objects = [];
 const backrefs = {};
@@ -41,13 +69,15 @@ for (let line of lines) {
     }
     const data = rest.join(" ");
     const lastObject = objects[objects.length - 1];
+
     objects.push({
       timestamp,
       data,
       duration: lastObject ? timestamp - lastObject.timestamp : 0,
-      nodeId: currNodeId++,
+      nodeId: currFirstObjectNodeId,
       scriptId: scripts[scripts.length - 1]?.id + 1 ?? -1,
     });
+    currFirstObjectNodeId = currNodeId;
 
     continue;
   }
@@ -102,7 +132,8 @@ for (let line of lines) {
 
   const node = {
     name,
-    id: currNodeId,
+    id: currNodeId++,
+    objId: currObjId,
     data: data.join(" "),
     children: [],
     depth,
@@ -161,7 +192,19 @@ const nodeDeserdeSources = {
   "Backref": "1102",
 };
 
-function generateNodeList(node) {
+// Delete parent references to avoid circular references
+function deleteParent(node) {
+  node.id = node.id.toString();
+  node.name = nodeName(node);
+  delete node.parent;
+}
+function deleteParents(node) {
+  deleteParent(node);
+  node.children.forEach(deleteParents);
+}
+deleteParents(root);
+
+function nodeName(node) {
   let data = escapeHTML(node.name) + escapeHTML(node.data ?? "");
   if (node.ref) {
     const refs = backrefs[node.ref].refs;
@@ -176,25 +219,12 @@ function generateNodeList(node) {
     data += ` <a href="#backref-${node.backref}">(backref ${node.backref})</a>`;
   }
   if (nodeDeserdeSources[node.name]) {
-    //    data += ` <a class="flright" target="_blank" href='${sourceRoot}#${
-    //      nodeDeserdeSources[node.name]
-    //    }'><span style="font-size: 0.5em"> [src]</span></a>`;
+        //data += ` <a class="flright" target="_blank" href='${sourceRoot}#${
+        //  nodeDeserdeSources[node.name]
+        //}'><span style="font-size: 0.5em"> [src]</span></a>`;
   }
-  if (!node.children.length) {
-    return `<li>${data}</li>`;
-  }
-
-  const childrenHTML = node.children.map(generateNodeList).join("");
-  return `
-    <li>
-      <details id="${node.id}">
-        <summary>${data}</summary>
-        <ul>
-          ${childrenHTML}
-        </ul>
-      </details>
-    </li>
-  `;
+  
+  return data;
 }
 
 function escapeHTML(html) {
@@ -235,162 +265,9 @@ const html = `
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>deno CLI snapshot</title>
-  <style>
-    body {
-      font-family: monospace;
-    }
-.tree {
-  --spacing: 1.5rem;
-  --radius: 5px;
-  line-height: 1.5;
-}
-
-.tree li {
-  display: block;
-  position: relative;
-  padding-left: calc(2 * var(--spacing) - var(--radius) - 2px);
-  content-visibility: auto; /* For performance */
-}
-
-.tree ul {
-  margin-left: calc(var(--radius) - var(--spacing));
-  padding-left: 0;
-}
-
-.tree ul li {
-  border-left: 2px solid #ddd;
-}
-
-.tree ul li:last-child {
-  border-color: transparent;
-}
-
-.tree ul li::before {
-  content: '';
-  display: block;
-  position: absolute;
-  top: calc(var(--spacing) / -2);
-  left: -2px;
-  width: calc(var(--spacing) + 2px);
-  height: calc(var(--spacing) + 1px);
-  border: solid #ddd;
-  border-width: 0 0 2px 2px;
-}
-
-.tree summary {
-  display: block;
-  cursor: pointer;
-}
-
-.tree summary::marker,
-.tree summary::-webkit-details-marker {
-  display: none;
-}
-
-.tree summary:focus {
-  outline: none;
-}
-
-.tree summary:focus-visible {
-  outline: 1px dotted #000;
-}
-
-.tree li::after,
-.tree summary::before {
-  content: '';
-  display: block;
-  position: absolute;
-  top: calc(var(--spacing) / 2 - var(--radius));
-  left: calc(var(--spacing) - var(--radius) - 1px);
-  width: calc(2 * var(--radius));
-  height: calc(2 * var(--radius));
-  border-radius: 50%;
-  background: #ddd;
-}
-
-.tree summary::before {
-  z-index: 1;
-  background: #696 url('expand-collapse.svg') 0 0;
-}
-
-.tree details[open] > summary::before {
-  background-position: calc(-2 * var(--radius)) 0;
-}
-.fright {
-  float: right;
-}
-        body { 
-            display: flex; 
-            margin: 0; 
-	    min-height: 100vh;
-	    height: 100%;
-        } 
-        .column { 
-            padding: 15px; 
-            box-sizing: border-box; 
-        } 
-	.maxw50 {
-	    max-width: 50vw;
-	 }
-        .left { 
-            background-color: #f8f9fa; 
-        } 
-        .right { 
-            background-color: #e9ecef; 
-	    width: 100%;
-        } 
-	.row {
-	    display: flex;
-	}
-	.top {
-	    flex: 1;
-	    max-height: 50vh;
-	    overflow: auto;
-	}
-	table
-{
-word-wrap: break-word;
-}
-
-	.bottom {
-	    flex: 1;
-	    }
-	    td, th {
-	    padding: 0.5em;
-	    text-align: left;
-	    }
-	    .resize {
-   background: #444857;
-   width: 1px;
-   cursor: col-resize;
-   flex-shrink: 0;
-   position: relative;
-   z-index: 10;
-   user-select: none;
-}
-.resize::before {
-   content: "";
-   position: absolute;
-   top: 50%;
-   left: 50%;
-   transform: translate(-50%, -50%);
-   width: 3px;
-   height: 100vh;
-   border-inline: 1px solid #fff;
-}
-    [data-tooltip]:hover::after {
-      display: block;
-      position: absolute;
-      content: attr(data-tooltip);
-      border: 1px solid black;
-      background: #eee;
-      padding: 0.25em;
-    }
-    .tooltip {
-      text-decoration: underline;
-      text-decoration-style: dotted;
-    }
-  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/infinite-tree/1.18.0/infinite-tree.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/infinite-tree/1.18.0/infinite-tree.min.css">
+  <style>${Deno.readTextFileSync("style.css")}</style>
 </head>
 <body>
   <div class="column left maxw50">
@@ -411,9 +288,7 @@ word-wrap: break-word;
    <div class="resize" id="resize"></div>
   <div class="column right">
   <div class="row top tree">
-  <ul>
-    ${generateNodeList(root)}
-  </ul>
+    Loading...
   </div>
   <hr>
   <div class="row bottom clusterize">
@@ -431,7 +306,6 @@ word-wrap: break-word;
   </div>
 </body>
 <script>
-
 var resize = document.querySelector("#resize");
 var left = document.querySelector(".left");
 var moveX =
@@ -488,15 +362,45 @@ function showScriptObjects(e, scriptId) {
 
 function openTarget() {
   var hash = location.hash.substring(1);
-  if(hash) var details = document.getElementById(hash);
-  if(details && details.tagName.toLowerCase() === 'details') {
-    details.open = true;
-    details.scrollIntoView({behavior: 'smooth', block: 'center'});
+  const node = tree.getNodeById(hash);
+
+  if (node) {
+    tree.openNode(node);
+    tree.scrollToNode(node);
+    tree.selectNode(node);
   }
 }
+
 window.addEventListener('hashchange', openTarget);
-window.addEventListener('load', openTarget);
+
+const data = ${JSON.stringify(root)};
+
+const treeEl = document.querySelector('.tree');
+treeEl.innerHTML = "";
+
+const tmpDiv = document.createElement('div');
+const defaultRenderer = (new InfiniteTree).options.rowRenderer;
+const tree = new InfiniteTree({
+  el: treeEl,
+  autoOpen: true,
+  data,
+  selectable: true,
+  rowRenderer: (node, treeOptions) => {
+    const row = defaultRenderer(node, treeOptions);
+    tmpDiv.innerHTML = row;
+
+    const contentEl = tmpDiv.querySelector('.infinite-tree-title')
+    contentEl.innerHTML = node.name;
+
+    const nodeEl = tmpDiv.querySelector('.infinite-tree-item');
+    nodeEl.id = node.objId;
+    nodeEl.setAttribute('data-id', node.id);
+
+    return tmpDiv.innerHTML;
+  }
+});
 </script>
+
 </html>`;
 
 await Deno.writeTextFile("trace.html", html);
