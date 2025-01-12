@@ -1,4 +1,5 @@
 // MIT License. 2025 Divy Srivastava.
+import cjson from "npm:compressed-json";
 
 const trace = await Deno.readTextFile("trace.txt");
 
@@ -24,7 +25,7 @@ async function eventMapFor(run) {
   return eventMap;
 }
 
-// Read events from n different runs and make the final event map which 
+// Read events from n different runs and make the final event map which
 // averages the time between the events.
 const eventMap = {};
 const eventsMaps = [];
@@ -162,7 +163,7 @@ for (let line of lines) {
   }
 }
 
-const objectTimeThreashold = 0.1;
+const objectTimeThreashold = 0.02;
 const totalObjectTime = objects[objects.length - 1].timestamp -
   objects[0].timestamp;
 objects = objects.sort((a, b) => b.duration - a.duration);
@@ -219,11 +220,11 @@ function nodeName(node) {
     data += ` <a href="#backref-${node.backref}">(backref ${node.backref})</a>`;
   }
   if (nodeDeserdeSources[node.name]) {
-        //data += ` <a class="flright" target="_blank" href='${sourceRoot}#${
-        //  nodeDeserdeSources[node.name]
-        //}'><span style="font-size: 0.5em"> [src]</span></a>`;
+    data += ` <a class="flright" target="_blank" href='${sourceRoot}#${
+      nodeDeserdeSources[node.name]
+    }'><span style="font-size: 0.5em"> [src]</span></a>`;
   }
-  
+
   return data;
 }
 
@@ -256,6 +257,8 @@ function generateTopScripts() {
     }</td><td>${script.name} <a href="#${script.nodeId}" onClick="showScriptObjects(this, '${script.id}')">[*]</a></td></tr>`;
   });
 }
+
+const compressedRoot = cjson.compress.toString(root);
 
 // Generate the HTML for the entire tree
 const html = `
@@ -305,7 +308,9 @@ const html = `
   </div>
   </div>
 </body>
-<script>
+<script type="module">
+import compressedJson from 'https://cdn.jsdelivr.net/npm/compressed-json@1.0.16/+esm'
+
 var resize = document.querySelector("#resize");
 var left = document.querySelector(".left");
 var moveX =
@@ -359,6 +364,7 @@ function showScriptObjects(e, scriptId) {
     }
   });
 }
+window.showScriptObjects = showScriptObjects;
 
 function openTarget() {
   var hash = location.hash.substring(1);
@@ -373,7 +379,9 @@ function openTarget() {
 
 window.addEventListener('hashchange', openTarget);
 
-const data = ${JSON.stringify(root)};
+const data = compressedJson.decompress.fromString(${
+  JSON.stringify(compressedRoot)
+});
 
 const treeEl = document.querySelector('.tree');
 treeEl.innerHTML = "";
