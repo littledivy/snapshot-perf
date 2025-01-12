@@ -25,6 +25,14 @@ async function eventMapFor(run) {
   return eventMap;
 }
 
+const ignoreEvents = [
+  "v8-version",
+  "v8-platform",
+  "new",
+  "heap-capacity",
+  "heap-available",
+];
+
 // Read events from n different runs and make the final event map which
 // averages the time between the events.
 const eventMap = {};
@@ -57,7 +65,6 @@ const backrefs = {};
 let scripts = [];
 
 for (let line of lines) {
-  line = line.trim();
   if (line.startsWith("[") || line === "") {
     continue;
   }
@@ -107,7 +114,7 @@ for (let line of lines) {
     continue;
   }
 
-  if (line.startsWith("(set obj backref")) {
+  if (line.trim().startsWith("(set obj backref")) {
     const backRef = line.split(" ")[3].slice(0, -1).trim();
     current.ref = backRef;
     backrefs[backRef] ??= { node: current, refs: [] };
@@ -115,11 +122,11 @@ for (let line of lines) {
     continue;
   }
 
-  let [depthStr, name, ...data] = line.split(/(\s+)/).filter((e) =>
-    e.trim().length > 0
-  );
-  const depth = parseInt(depthStr, 16);
-  if (Number.isNaN(depth)) {
+  const depth = line.indexOf(line.trim());
+
+  line = line.trim();
+  let [name, ...data] = line.split(/(\s+)/).filter((e) => e.trim().length > 0);
+  if (Number.isNaN(depth) || depth < 0) {
     continue;
   }
 
@@ -127,6 +134,11 @@ for (let line of lines) {
     continue;
   }
   name = name.trim();
+
+  if (ignoreEvents.find((e) => name.startsWith(e))) {
+    continue;
+  }
+
   if (name.startsWith("-")) {
     name = name.slice(1);
   }
@@ -290,6 +302,7 @@ const html = `
    </div>
    <div class="resize" id="resize"></div>
   <div class="column right">
+  <input type="text" id="search" placeholder="Filter"></input>
   <div class="row top tree">
     Loading...
   </div>
@@ -311,6 +324,7 @@ const html = `
 <script type="module">
 import compressedJson from 'https://cdn.jsdelivr.net/npm/compressed-json@1.0.16/+esm'
 
+const search = document.querySelector("#search");
 var resize = document.querySelector("#resize");
 var left = document.querySelector(".left");
 var moveX =
@@ -395,6 +409,10 @@ const tree = new InfiniteTree({
   selectable: true,
   rowRenderer: (node, treeOptions) => {
     const row = defaultRenderer(node, treeOptions);
+    if (!row) {
+      return row;
+    }
+
     tmpDiv.innerHTML = row;
 
     const contentEl = tmpDiv.querySelector('.infinite-tree-title')
@@ -405,6 +423,18 @@ const tree = new InfiniteTree({
     nodeEl.setAttribute('data-id', node.id);
 
     return tmpDiv.innerHTML;
+  }
+});
+
+let unfiltered = true;
+search.addEventListener('keyup', (e) => {
+  const keyword = e.target.value;
+  if (keyword && e.key === "Enter") {
+    unfiltered = false;
+    tree.filter(keyword);
+  } else if (!keyword && !unfiltered) {
+    tree.unfilter();
+    unfiltered = true;
   }
 });
 </script>

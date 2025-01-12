@@ -12,6 +12,11 @@ body {
   float: right;
 }
 
+#search {
+  width: 100%;
+  margin-bottom: 0.5em;
+}
+
 body {
   display: flex;
   margin: 0;
