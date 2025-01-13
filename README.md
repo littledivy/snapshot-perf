@@ -1,24 +1,8 @@
---trace-deserialization
+Compile V8 with `v8-objprint-patch.diff` patch applied.
 
+Generate the report with:
 ```
-depth name [<count>] [: <data>]
-```
-
---log-function-events
-
-```
-script-details,<id>,<script name>
-script,deserialize,<id>,<time>
+./gen.sh
 ```
 
-HeapObject postprocess timestamp
-
-```
--- <time> <printed obj>
-```
-
---profile-deserialization
-
-```
-[<operation> took <time>ms]
-```
+standalone HTML report is saved in `report.html`.

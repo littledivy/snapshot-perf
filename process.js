@@ -1,5 +1,6 @@
-// MIT License. 2025 Divy Srivastava.
-import cjson from "npm:compressed-json";
+// Copyright 2024-2025 Divy Srivastava. See LICENSE file for details.
+
+import cjson from "npm:compressed-json@1.0.16";
 
 const trace = await Deno.readTextFile("trace.txt");
 
@@ -33,8 +34,6 @@ const ignoreEvents = [
   "heap-available",
 ];
 
-// Read events from n different runs and make the final event map which
-// averages the time between the events.
 const eventMap = {};
 const eventsMaps = [];
 

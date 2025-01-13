@@ -1,6 +1,5 @@
-divy@divy-macbook v8 % git diff
 diff --git a/src/snapshot/deserializer.cc b/src/snapshot/deserializer.cc
-index 10fed39b27..7a2829fd1e 100644
+index 10fed39b27..0ccc4d097f 100644
 --- a/src/snapshot/deserializer.cc
 +++ b/src/snapshot/deserializer.cc
 @@ -567,6 +567,7 @@ void Deserializer<IsolateT>::PostProcessNewObject(DirectHandle<Map> map,
@@ -25,3 +24,12 @@ index 10fed39b27..7a2829fd1e 100644
  }
 
  template <typename IsolateT>
+@@ -967,7 +975,7 @@ template <typename SlotAccessor>
+ int Deserializer<IsolateT>::ReadSingleBytecodeData(uint8_t data,
+                                                    SlotAccessor slot_accessor) {
+   if (v8_flags.trace_deserialization) {
+-    PrintF("%02x ", data);
++    // PrintF("%02x ", data);
+   }
+   switch (data) {
+     case CASE_RANGE_ALL_SPACES(kNewObject):
