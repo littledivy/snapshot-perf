@@ -32,6 +32,9 @@ const ignoreEvents = [
   "new",
   "heap-capacity",
   "heap-available",
+  "function",
+  "compilation-cache",
+  "delete",
 ];
 
 const eventMap = {};
@@ -175,6 +178,10 @@ for (let line of lines) {
 }
 
 const objectTimeThreashold = 0.02;
+if (objects.length === 0) {
+  objects = [{ timestamp: 0, data: "No objects", duration: 0 }];
+}
+
 const totalObjectTime = objects[objects.length - 1].timestamp -
   objects[0].timestamp;
 objects = objects.sort((a, b) => b.duration - a.duration);
