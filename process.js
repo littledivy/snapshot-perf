@@ -270,6 +270,54 @@ function generateTopScripts() {
   });
 }
 
+function nameToGroup(name) {
+  if (name.startsWith("node:")) {
+    return "deno_node";
+  }
+  if (name.startsWith("ext:")) {
+    return name.split("/")[0].slice(4);
+  }
+  throw new Error(`Unknown group for ${name}`);
+}
+
+let visitedNames = new Set();
+
+function nameToFilePath(name) {
+  if (name.startsWith("ext:")) {
+    const parts = name.split("/");
+    const path = parts.slice(1).join("/");
+    if (!visitedNames.has(path)) {
+      visitedNames.add(path);
+      return path;
+    } else {
+      return `${parts[1]}/${parts[2]}`;
+    }
+  }
+  return name;
+}
+
+const groups = new Set(
+  scripts.filter((n) => n.name !== "Unknown").map((script) =>
+    nameToGroup(script.name)
+  ),
+);
+
+function generateScriptsChartData() {
+  return [
+    ["root", null, 0],
+    ...Array.from(groups).map((group) => {
+      return [group, "root", 0];
+    }),
+    ...scripts.filter((n) => n.name !== "Unknown").map((script) => {
+      return [
+        nameToFilePath(script.name),
+        nameToGroup(script.name),
+        script.time,
+      ];
+    }),
+  ];
+}
+
 const compressedRoot = cjson.compress.toString(root);
 
 // Generate the HTML for the entire tree
@@ -282,11 +330,14 @@ const html = `
   <title>deno CLI snapshot</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/infinite-tree/1.18.0/infinite-tree.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/infinite-tree/1.18.0/infinite-tree.min.css">
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
   <style>${Deno.readTextFileSync("style.css")}</style>
 </head>
 <body>
   <div class="column left maxw50">
-<table>
+ <div class="row top">
+    <table>
     <tr>
       <th>%</th>
       <th><span class="tooltip" data-tooltip="time till deserialize">TTD (ms)</span></th>
@@ -299,6 +350,11 @@ const html = `
       </tr>
     ${generateTopScripts().join("")}
   </table>
+  </div>
+  <hr>
+  <div class="row bottom" id="chart_div">
+    Loading...
+  </div>
    </div>
    <div class="resize" id="resize"></div>
   <div class="column right">
@@ -322,7 +378,7 @@ const html = `
   </div>
 </body>
 <script type="module">
-import compressedJson from 'https://cdn.jsdelivr.net/npm/compressed-json@1.0.16/+esm'
+import compressedJson from 'https://cdn.jsdelivr.net/npm/compressed-json@1.0.16/+esm';
 
 const search = document.querySelector("#search");
 var resize = document.querySelector("#resize");
@@ -335,7 +391,6 @@ var drag = false;
 resize.addEventListener("mousedown", function (e) {
    drag = true;
    moveX = e.x;
-   console.log("mousedown");
 });
 
 document.addEventListener("mousemove", function (e) {
@@ -344,6 +399,7 @@ document.addEventListener("mousemove", function (e) {
       left.style.width =
          moveX - resize.getBoundingClientRect().width / 2 + "px";
       e.preventDefault();
+      drawChart();
    }
 });
 
@@ -392,6 +448,47 @@ function openTarget() {
 }
 
 window.addEventListener('hashchange', openTarget);
+
+google.charts.load('current', {'packages':['treemap']});
+google.charts.setOnLoadCallback(drawChart);
+
+ function drawChart() {
+    var data = google.visualization.arrayToDataTable(JSON.parse(${
+  JSON.stringify(JSON.stringify(generateScriptsChartData()))
+}), true);
+
+    var options = {
+      width: 'auto',
+      height: 'auto',
+        enableHighlight: true,
+        maxDepth: 1,
+        maxPostDepth: 2,
+        minHighlightColor: '#8c6bb1',
+        midHighlightColor: '#9ebcda',
+        maxHighlightColor: '#edf8fb',
+        minColor: '#009688',
+        midColor: '#f7f7f7',
+        maxColor: '#ee8100',
+        headerHeight: 15,
+        useWeightedAverageForAggregation: true,
+        // Use click to highlight and double-click to drill down.
+        eventsConfig: {
+          highlight: ['click'],
+          unhighlight: ['mouseout'],
+          rollup: ['contextmenu'],
+          drilldown: ['dblclick'],
+        }
+    };
+
+    var chart = new google.visualization.TreeMap(document.getElementById('chart_div'));
+
+    chart.draw(data, options);
+  }
+  
+  window.drawChart = drawChart;
+
+  // Redraw chart on resize
+  window.addEventListener('resize', drawChart);
 
 const data = compressedJson.decompress.fromString(${
   JSON.stringify(compressedRoot)
