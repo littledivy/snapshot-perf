@@ -302,10 +302,15 @@ function nameToFilePath(name) {
   return name;
 }
 
+const groupByPercentTTD = {};
+
 const groups = new Set(
-  scripts.filter((n) => n.name !== "Unknown").map((script) =>
-    nameToGroup(script.name)
-  ),
+  scripts.filter((n) => n.name !== "Unknown").map((script) => {
+    const group = nameToGroup(script.name);
+    groupByPercentTTD[group] ??= 0;
+    groupByPercentTTD[group] += script.time / totalScriptTime * 100;
+    return group;
+  }),
 );
 
 function generateScriptsChartData() {
@@ -483,8 +488,20 @@ google.charts.setOnLoadCallback(drawChart);
           unhighlight: ['mouseout'],
           rollup: ['contextmenu'],
           drilldown: ['dblclick'],
-        }
+        },
+	generateTooltip: showStaticTooltip
     };
+
+  const percentTTD = ${JSON.stringify(groupByPercentTTD)};
+
+  function showStaticTooltip(row, size, value) {
+  	const percent = percentTTD[data.getValue(row, 0)]?.toFixed(3);
+	if (!percent) return "";
+	return '<div style="background:#fd9; padding:10px; border-style:solid">' +
+		'<span>' + data.getValue(row, 0) + '</span>' +
+		'<span> ' + percent + '%</span><br>' +
+		'</div>';
+  }
 
     var chart = new google.visualization.TreeMap(document.getElementById('chart_div'));
 
